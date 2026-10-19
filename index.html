@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ونيس</title>
+<meta name="description" content="ونيس: رفيق صوتي بلهجة سعودية يطمّن على كبار السن كل أسبوع.">
+<style>
+  :root {
+    --bg: #f6efe2;
+    --card: #fffaf1;
+    --ink: #2f2a1f;
+    --muted: #6b6250;
+    --olive: #5f6b3a;
+    --olive-dark: #4a5430;
+    --sand: #d9c7a3;
+    --wa: #1f7a4d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  main {
+    width: 100%;
+    max-width: 520px;
+    background: var(--card);
+    border: 2px solid var(--sand);
+    border-radius: 28px;
+    padding: 40px 24px 28px;
+    text-align: center;
+  }
+  .logo {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--olive);
+    color: #fffaf1;
+    font-size: 84px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .logo.speaking { box-shadow: 0 0 0 14px rgba(95,107,58,.25); transform: scale(1.04); }
+  .logo.listening { box-shadow: 0 0 0 10px rgba(217,199,163,.8); }
+  h1 { font-size: 56px; margin: 0 0 8px; }
+  .tagline { font-size: 24px; color: var(--muted); margin: 0 0 32px; line-height: 1.6; }
+  button, .wa {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 20px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  #call {
+    background: var(--olive);
+    color: #fffaf1;
+    font-size: 30px;
+    padding: 28px 16px;
+    min-height: 96px;
+  }
+  #call:hover { background: var(--olive-dark); }
+  #call.active { background: #8a3b2e; }
+  #call:disabled { opacity: .7; cursor: wait; }
+  #status { font-size: 22px; min-height: 34px; margin: 16px 0; color: var(--muted); }
+  .wa {
+    background: #fff;
+    color: var(--wa);
+    border: 3px solid var(--wa);
+    font-size: 24px;
+    padding: 20px 16px;
+  }
+  .note { font-size: 15px; color: var(--muted); margin-top: 28px; line-height: 1.8; }
+  :focus-visible { outline: 4px solid #c58b2a; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo" id="logo" aria-hidden="true">و</div>
+  <h1>ونيس</h1>
+  <p class="tagline">رفيقك اللي يسولف معك ويطمّن عليك كل أسبوع</p>
+
+  <button id="call" type="button">اضغط وكلّم ونيس</button>
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <a class="wa" id="wa" target="_blank" rel="noopener">كلّمني على الواتساب</a>
+
+  <p class="note">نموذج تجريبي لمسابقة أبدع بفكرة ٢٠٢٦ · لا يغني عن الطبيب · في الطوارئ اتصل ٩١١ · للاستشارة ٩٣٧</p>
+</main>
+
+<script type="module">
+  import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/+esm";
+
+  const AGENT_ID = "agent_4201m590vfyfff68j1qfea0kjqrj";
+  const WHATSAPP_NUMBER = "966567563417";
+  const GREETING = "السلام عليكم";
+
+  const btn = document.getElementById("call");
+  const statusEl = document.getElementById("status");
+  const logo = document.getElementById("logo");
+  document.getElementById("wa").href =
+    "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(GREETING);
+
+  let conversation = null;
+
+  function idle(msg) {
+    conversation = null;
+    btn.disabled = false;
+    btn.classList.remove("active");
+    btn.textContent = "اضغط وكلّم ونيس";
+    logo.className = "logo";
+    statusEl.textContent = msg || "";
+  }
+
+  btn.addEventListener("click", async () => {
+    if (conversation) {
+      btn.disabled = true;
+      await conversation.endSession();
+      return;
+    }
+    btn.disabled = true;
+    statusEl.textContent = "لحظة، نوصلك بونيس…";
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      conversation = await Conversation.startSession({
+        agentId: AGENT_ID,
+        connectionType: "webrtc",
+        onConnect: () => {
+          btn.disabled = false;
+          btn.classList.add("active");
+          btn.textContent = "إنهاء المكالمة";
+          statusEl.textContent = "ونيس معك، تكلّم براحتك";
+        },
+        onDisconnect: () => idle("انتهت المكالمة، الله يحفظك"),
+        onModeChange: ({ mode }) => {
+          logo.className = "logo " + (mode === "speaking" ? "speaking" : "listening");
+          statusEl.textContent = mode === "speaking" ? "ونيس يتكلم…" : "ونيس يسمعك…";
+        },
+        onError: () => idle("صار خلل بسيط، جرّب مرة ثانية"),
+      });
+    } catch (e) {
+      idle(e && e.name === "NotAllowedError"
+        ? "نحتاج إذن المايكروفون عشان تكلّم ونيس"
+        : "ما قدرنا نوصل، جرّب مرة ثانية");
+    }
+  });
+</script>
+</body>
+</html>
